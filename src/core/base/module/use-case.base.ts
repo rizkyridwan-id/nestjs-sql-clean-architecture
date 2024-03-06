@@ -6,7 +6,7 @@ export interface JwtDecoded {
 }
 
 export interface IUseCasePayload<T> {
-  _id: string;
+  id: number;
   data: T;
   user: JwtDecoded;
 }

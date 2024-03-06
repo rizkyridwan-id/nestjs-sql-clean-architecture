@@ -9,7 +9,7 @@ import { ResourceModule } from './module/resource.module';
     ConfigModule.forRoot({ isGlobal: true }),
     HelperModule,
     ResourceModule,
-    ...databaseProviders,
   ],
+  providers: [...databaseProviders],
 })
 export class AppModule {}

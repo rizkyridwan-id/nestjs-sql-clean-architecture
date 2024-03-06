@@ -1,86 +1,74 @@
-import {
-  ClientSession,
-  Document,
-  FilterQuery,
-  SortOrder,
-  UpdateQuery,
-} from 'mongoose';
+import { Transaction, UpdateOptions, WhereOptions } from 'sequelize';
 import { IPaginationMeta } from '../interface/pagination-meta.interface';
 import { IRepositoryResponse } from '../interface/repository-response.interface';
+import { ISortOption } from '../interface/sort-option.interface';
 
-export interface BaseRepositoryPort<Entity, MongoEntity> {
-  findAll(session?: ClientSession): Promise<Array<MongoEntity>>;
+export interface BaseRepositoryPort<Entity, SqlModel> {
+  findAll(trx?: Transaction): Promise<Array<SqlModel>>;
   findOne(
-    identifier: FilterQuery<MongoEntity>,
-    session?: ClientSession,
-  ): Promise<MongoEntity | undefined>;
+    identifier: WhereOptions<SqlModel>,
+    trx?: Transaction,
+  ): Promise<SqlModel | null | undefined>;
 
   findOneOrThrow(
-    identifier: FilterQuery<MongoEntity>,
+    identifier: WhereOptions<SqlModel>,
+    trx?: Transaction,
+  ): Promise<SqlModel>;
+  findOneOrThrow(
+    identifier: WhereOptions<SqlModel>,
     errorMessage?: string,
-    session?: ClientSession,
-  ): Promise<MongoEntity>;
+    trx?: Transaction,
+  ): Promise<SqlModel>;
 
   findOneAndThrow(
-    identifier: FilterQuery<MongoEntity>,
-    session?: ClientSession,
+    identifier: WhereOptions<SqlModel>,
+    trx?: Transaction,
   ): Promise<void>;
-
   findOneAndThrow(
-    identifier: FilterQuery<MongoEntity>,
+    identifier: WhereOptions<SqlModel>,
     errorMessage?: string,
-    session?: ClientSession,
+    trx?: Transaction,
   ): Promise<void>;
 
   findOneLatest(
-    identifier: FilterQuery<MongoEntity>,
-    session?: ClientSession,
-  ): Promise<MongoEntity | undefined>;
-  findById(
-    id: string,
-    session?: ClientSession,
-  ): Promise<MongoEntity | undefined>;
+    identifier: WhereOptions<SqlModel>,
+    trx?: Transaction,
+  ): Promise<SqlModel | null>;
+  findById(id: string, trx?: Transaction): Promise<SqlModel | null>;
   findBy(
-    identifier: FilterQuery<MongoEntity>,
-    session?: ClientSession,
-  ): Promise<Array<MongoEntity>>;
+    identifier: WhereOptions<SqlModel>,
+    trx?: Transaction,
+  ): Promise<Array<SqlModel>>;
   findByPaginated(
-    identifier: FilterQuery<MongoEntity>,
+    identifier: WhereOptions<SqlModel>,
     paginationMeta: IPaginationMeta,
-  ): Promise<Array<MongoEntity>>;
+  ): Promise<Array<SqlModel>>;
   findByPaginateSorted(
-    identifier: FilterQuery<MongoEntity>,
+    identifier: WhereOptions<SqlModel>,
     paginationMeta: IPaginationMeta,
-    sort: { [key: string]: SortOrder | { $meta: any } },
-  ): Promise<Array<MongoEntity>>;
+    sort: ISortOption,
+  ): Promise<Array<SqlModel>>;
   count(): Promise<number>;
-  countBy(identifier: FilterQuery<MongoEntity>): Promise<number>;
-  save(entity: Entity, session?: ClientSession): Promise<IRepositoryResponse>;
-  saveReturnDocument(
-    entity: Entity,
-    session?: ClientSession,
-  ): Promise<Document<any, any>>;
-  saveMany(
-    entity: Entity[],
-    session?: ClientSession,
-  ): Promise<IRepositoryResponse>;
+  countBy(identifier: WhereOptions<SqlModel>): Promise<number>;
+  save(entity: Entity, trx?: Transaction): Promise<IRepositoryResponse>;
+  saveMany(entities: Entity[], trx?: Transaction): Promise<IRepositoryResponse>;
   update(
-    identifier: FilterQuery<MongoEntity>,
-    data: UpdateQuery<Partial<MongoEntity>>,
-    session?: ClientSession,
+    identifier: WhereOptions<SqlModel>,
+    data: UpdateOptions<SqlModel>,
+    trx?: Transaction,
   ): Promise<IRepositoryResponse>;
   updateWithoutThrow(
-    identifier: FilterQuery<MongoEntity>,
-    data: UpdateQuery<Partial<MongoEntity>>,
-    session?: ClientSession,
+    identifier: WhereOptions<SqlModel>,
+    data: UpdateOptions<SqlModel>,
+    trx?: Transaction,
   ): Promise<IRepositoryResponse>;
   delete(
-    identifier: FilterQuery<Partial<MongoEntity>>,
-    session?: ClientSession,
+    identifier: WhereOptions<Partial<SqlModel>>,
+    trx?: Transaction,
   ): Promise<IRepositoryResponse>;
   deleteWithoutThrow(
-    identifier: FilterQuery<Partial<MongoEntity>>,
-    session?: ClientSession,
+    identifier: WhereOptions<Partial<SqlModel>>,
+    trx?: Transaction,
   ): Promise<IRepositoryResponse>;
-  deleteAll(session?: ClientSession): Promise<IRepositoryResponse>;
+  deleteAll(trx?: Transaction): Promise<IRepositoryResponse>;
 }

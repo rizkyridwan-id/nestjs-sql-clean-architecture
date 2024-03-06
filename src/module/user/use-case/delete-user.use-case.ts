@@ -8,7 +8,7 @@ import {
 import { UserRepositoryPort } from '../../../port/repository/user.repository.port';
 import { InjectUserRepository } from '../repository/user.repository.provider';
 
-type TDeleteUserPayload = Pick<IUseCasePayload<never>, '_id'>;
+type TDeleteUserPayload = Pick<IUseCasePayload<never>, 'id'>;
 
 @Injectable()
 export class DeleteUser
@@ -21,9 +21,9 @@ export class DeleteUser
     super();
   }
 
-  public async execute({ _id }: TDeleteUserPayload): Promise<ResponseDto> {
+  public async execute({ id }: TDeleteUserPayload): Promise<ResponseDto> {
     try {
-      await this.userRepository.delete({ _id });
+      await this.userRepository.delete({ id });
     } catch (err) {
       this.logger.error(err.message);
       if (err instanceof HttpException) throw err;
@@ -32,7 +32,7 @@ export class DeleteUser
     }
     return new ResponseDto({
       status: HttpStatus.OK,
-      message: `${_id} documents deleted!`,
+      message: `${id} documents deleted!`,
     });
   }
 }

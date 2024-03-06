@@ -1,4 +1,4 @@
-# NestJS Clean Architecture + MongoDB
+# NestJS Clean Architecture + SQL
 I've compiled best practices from various articles in this **repository**. While I've drawn inspiration from these sources, feel free to comment on or modify any aspect to meet your individual requirements. All references and credits are provided in the **dedicated section**.
 
 ---
@@ -9,7 +9,7 @@ I've compiled best practices from various articles in this **repository**. While
 [Packages](#packages)
 * [Nest JS](#nest-js)
 * [Fastify](#fastify)
-* [Mongoose](#mongoose)
+* [Sequelize + PostgreSQL](#sequelize)
 * [Passport](#passport)
 * [Class Validator](#class-validator)
 * [Helmet](#helmet)
@@ -28,7 +28,7 @@ I've compiled best practices from various articles in this **repository**. While
 [Explanation & Usage](#explanation--usage)
 * [Installation](#installation)
 * [Architecture Layer](#architecture-layer)
-	- [MongoEntity](#mongo-entity)
+	- [SqlModel](#sql-model)
 	- [Repository](#repository)
 	- [Port](#port)
 	- [Domain](#domain)
@@ -42,7 +42,7 @@ I've compiled best practices from various articles in this **repository**. While
 
 ---
 ## Description
-This repository leverages NestJS as the core framework and Mongoose for MongoDB connectivity. It implements the Hexagonal Architecture and CQRS as its primary architectural approach. Additionally, Domain Entities facilitate value validation and code isolation.
+This repository leverages NestJS as the core framework and Sequelize for SQL connectivity. It implements the Hexagonal Architecture and CQRS as its primary architectural approach. Additionally, Domain Entities facilitate value validation and code isolation.
 
 ## Packages
 There are 5 Main Packages used in this repo:
@@ -50,8 +50,9 @@ There are 5 Main Packages used in this repo:
 	NestJS is a Node.js framework that offers built-in support for TypeScript. As a strong advocate for TypeScript's type system, I appreciate this feature greatly.
 * ### Fastify
     Fastify is a web framework highly focused on providing the best developer experience with the least overhead and a powerful plugin architecture. It is inspired by Hapi and Express and as far as we know, it is one of the fastest web frameworks in town.
-* ### Mongoose
-	Mongoose is a user-friendly MongoDB framework that simplifies common tasks, including connection management, data modeling, and schema validation.
+* ### Sequelize
+	Sequelize is a modern TypeScript and Node.js ORM for Oracle, Postgres, MySQL, MariaDB, SQLite and SQL Server, and more. Featuring solid transaction support, relations, eager and lazy loading, read replication and more.
+    In this boilerplate, PostgreSQL is the default database. you can easily change the database provider by installing the driver package. follow this link: [Sequelize Getting Started](https://sequelize.org/docs/v6/getting-started/)
 * ### Passport
 	I chose Passport as my authentication middleware for Node.js due to its flexibility and modularity, which are crucial for the project's needs.
 * ### Class Validator
@@ -82,17 +83,17 @@ This repository implements two-layered security, inspired by best practices obse
 * ### Signature
 	Signature validation is implemented in the header with API and secret keys. Imagine a signature like a secret password only you and the system know. So, a signature is like a secret password that helps verify your identity and keep things safe. Below is the example code for generating the signature code:
 	```typescript
-		import { SHA256 } from 'crypto-js';
+    import { SHA256 } from 'crypto-js';
 
-		computeSignature(
-			apiKey: string,
-			secretKey: string,
-			accessToken: string,
-			timestamp: string,
-		) {
-			const payload = apiKey + secretKey + accessToken + timestamp;
-			return SHA256(payload).toString();
-		}
+    computeSignature(
+        apiKey: string,
+        secretKey: string,
+        accessToken: string,
+        timestamp: string,
+    ) {
+        const payload = apiKey + secretKey + accessToken + timestamp;
+        return SHA256(payload).toString();
+    }
 	```
 	The API Key and Secret Key will be explained in **Installation** section.
 
@@ -111,12 +112,12 @@ Finally, I implemented the **CQRS pattern** to enhance code navigation based on 
 npm install
 ```
 2. Set Up **.env** File
-```shell
+```properties
 MODE=< DEVELOPMENT|PRODUCTION >
 PORT=3001
 HTTPS_MODE=< 1 | 0 >
 
-DB_CONNECTION_URI=mongodb+srv://username:password@cluster.net/db_name
+DB_CONNECTION_URI=postgres://username:password@cluster.net/db_name
 JWT_SECRET_KEY=jwt_key
 JWT_REFRESH_KEY=jwt_refresh
 
@@ -164,36 +165,35 @@ const hash = generateSignature(apiKey, apiSecret, accessToken, timestamp)
 ## Architecture Layer
 > Guided by the **YAGNI** principle, I employed **abstract base classes** to encapsulate core functionalities for key concepts like **DomainEntity**, **ValueObject**, and **EntityMapper**. This abstraction promotes flexibility and adaptability for future implementations without over-engineering unnecessary features.
 
-* ### MongoEntity
-    Simple class contains your mongodb model.
+* ### SqlModel
+    Simple class contains your SQL model.
     ```typescript
-    @Schema({ collection: 'tm_user' })
-    export class UserMongoEntity extends BaseMongoEntity<typeof UserMongoEntity> {
-    @Prop({ required: true })
-    username: string;
+    @Table({ tableName: 'tm_user' })
+    export class UserModel extends Model<UserAttributes, UserCreationAttributes> {
+        @Column({ allowNull: false })
+        username: string;
 
-    @Prop({ required: true })
-    password: string;
+        @Column({ allowNull: false })
+        password: string;
 
     //...
     }
     ```
-    > All entities extend **BaseMongoEntity** for consistent and convenient access to the document's **_id** within the type system.
+    > All entities extend **Model** for consistent and convenient access to the model's **properties** within the type system.
 * ### Repository
     Class that contains all of your low level logic to your database.
     ```typescript
     @Injectable()
     export class UserRepository
-    extends BaseRepository<UserMongoEntity, UserEntity>
-    implements UserRepositoryPort
-    {
-    constructor(
-        @InjectModel(UserMongoEntity.name) private userModel: Model<UserDocument>,
-    ) {
-        super(userModel, new UserMapper(UserMongoEntity));
-    }
+        extends BaseRepository<UserEntity, UserModel>
+        implements UserRepositoryPort {
+            constructor(
+                @Inject(USER_MODEL) private userModel: typeof UserModel,
+            ) {
+                super(userModel, new UserMapper());
+            }
 
-    // add new function here.
+        // add new function here.
     }
     ```
     > notes: I've made a **BaseRepository**, so you can extends new **repository** and use some basic CRUD function without make it manually. Remember to define an **InterfacePort** for each repository. This promotes modularity and facilitates clean code management, especially as the project scales.
@@ -201,13 +201,13 @@ const hash = generateSignature(apiKey, apiSecret, accessToken, timestamp)
     Port is basically an interface that hold function declaration as a contract for **UseCase** or **Controller** to use it.
     ```typescript
     export interface UserRepositoryPort
-    extends BaseRepositoryPort<UserMongoEntity, UserEntity> {
+        extends BaseRepositoryPort<UserEntity, UserModel>  {
     // add new declaration here. 
     }
     ```
     > Ensure your new port extends **BaseRepositoryPort** to leverage its base repository functionalities.
 * ### Domain
-    This layer focus on Business Logic, such as validation value, domain entity modelling, and mapping the **DomainEntity** to **MongoEntity**
+    This layer focus on Business Logic, such as validation value, domain entity modelling, and mapping the **DomainEntity** to **SqlModel**
 
     - ### DomainEntity
         Domain Entity is a class that focus to validation value. to make it easier see below code:
@@ -254,23 +254,24 @@ const hash = generateSignature(apiKey, apiSecret, accessToken, timestamp)
         ```
         > Notes: Utilize **Value Objects** strategically, reserving them for sensitive data like email addresses and phone numbers. For other properties, maintaining their raw form may be sufficient.
     - ### EntityMapper
-        Simple Class for mapping your Domain Entity to Mongo Entity.
+        Simple Class for mapping your Domain Entity to Sql Model.
         ```typescript
-        export class UserMapper extends DbMapper<UserEntity, UserMongoEntity> {
-            protected toMongoProps(
-                entity: UserEntity,
-            ): MongoEntityProps<UserMongoEntity> {
+        export class UserMapper implements IDbMapper<UserEntity, UserModel> {
+            toSqlProps(entity: UserEntity): UserModel {
                 const entityProps = entity.getPropsCopy();
 
-                const mongoProps: MongoEntityProps<UserMongoEntity> = {
-                ...entityProps,
-                level: entityProps.level.value,
-                };
-                return mongoProps;
+                const sqlModel: UserModel = new UserModel({
+                    password: entityProps.password,
+                    user_id: entityProps.user_id,
+                    user_name: entityProps.user_name,
+                    level: entityProps.level.value,
+                });
+                return sqlModel;
             }
         }
+
         ```
-        > Focus on The **Level** property, represented as a Value Object, requires extraction before being used within the Mongo model.
+        > Focus on The **Level** property, represented as a Value Object, requires extraction before being used within the MoSql model.
 * ### UseCase
     UseCases are the core logic behind your API features, encompassing functions like data creation, updates, and transaction management. They leverage various components like DomainEntities, Repositories, and ValueObjects to achieve their functionalities. Refer to the code for a deeper understanding.
 * ### Controller

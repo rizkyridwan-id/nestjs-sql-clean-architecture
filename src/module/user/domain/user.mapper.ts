@@ -1,17 +1,17 @@
 import { UserEntity } from './user.entity';
-import { UserMongoEntity } from '../repository/user.mongo-entity';
-import { DbMapper, MongoEntityProps } from 'src/core/base/domain/db-mapper';
+import { UserModel } from '../repository/user.model';
+import { IDbMapper } from 'src/port/interface/db-mapper.interface';
 
-export class UserMapper extends DbMapper<UserEntity, UserMongoEntity> {
-  protected toMongoProps(
-    entity: UserEntity,
-  ): MongoEntityProps<UserMongoEntity> {
+export class UserMapper implements IDbMapper<UserEntity, UserModel> {
+  toSqlProps(entity: UserEntity): UserModel {
     const entityProps = entity.getPropsCopy();
 
-    const mongoProps: MongoEntityProps<UserMongoEntity> = {
-      ...entityProps,
+    const sqlModel: UserModel = new UserModel({
+      password: entityProps.password,
+      user_id: entityProps.user_id,
+      user_name: entityProps.user_name,
       level: entityProps.level.value,
-    };
-    return mongoProps;
+    });
+    return sqlModel;
   }
 }

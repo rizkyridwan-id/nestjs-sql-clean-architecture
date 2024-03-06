@@ -39,17 +39,17 @@ export class UsersController {
     return this.getUser.execute({ data: query });
   }
 
-  @SecureDelete(':_id')
-  async deleteUserHandler(@Param('_id') _id: string) {
-    return this.deleteUser.execute({ _id });
+  @SecureDelete(':id')
+  async deleteUserHandler(@Param('id') id: string) {
+    return this.deleteUser.execute({ id: +id });
   }
 
-  @SecurePut(':_id')
+  @SecurePut(':id')
   update(
     @ZodBody(UpdateUserRequestDto)
     body: UpdateUserRequestDto,
-    @Param('_id') _id: string,
+    @Param('id') id: string,
   ) {
-    return this.updateUser.execute({ _id, data: body });
+    return this.updateUser.execute({ id: +id, data: body });
   }
 }

@@ -1,8 +1,6 @@
 import { BaseRepositoryPort } from './repository.base.port';
 import { UserEntity } from '../../module/user/domain/user.entity';
-import { UserMongoEntity } from '../../module/user/repository/user.mongo-entity';
+import { UserModel } from '../../module/user/repository/user.model';
 
 export interface UserRepositoryPort
-  extends BaseRepositoryPort<UserEntity, UserMongoEntity> {
-  findActiveUser(): Promise<Array<UserMongoEntity>>;
-}
+  extends BaseRepositoryPort<UserEntity, UserModel> {}

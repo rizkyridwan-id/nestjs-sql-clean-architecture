@@ -1,10 +1,6 @@
-import { IdResponseDto } from 'src/core/base/http/id-response.dto';
 import { UserResponseDtoProps } from 'src/port/dto/user.response-dto.port';
 
-export class UserResponseDto
-  extends IdResponseDto
-  implements UserResponseDtoProps
-{
+export class UserResponseDto implements UserResponseDtoProps {
   /**
    *
    * @param props {UserResponse}
@@ -14,8 +10,6 @@ export class UserResponseDto
    * of data to client.
    */
   constructor(props: UserResponseDtoProps) {
-    super(props._id);
-
     this.user_id = props.user_id;
     this.user_name = props.user_name;
     this.level = props.level;

@@ -1,67 +1,62 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  ClientSession,
-  Document,
-  FilterQuery,
-  isValidObjectId,
-  Model,
-  SortOrder,
-  Types,
-  UpdateQuery,
-} from 'mongoose';
 import { IRepositoryResponse } from '../../../port/interface/repository-response.interface';
 import { BaseRepositoryPort } from '../../../port/repository/repository.base.port';
 import { IPaginationMeta } from '../../../port/interface/pagination-meta.interface';
-import { DbMapper } from '../domain/db-mapper';
 import { TypeValidator } from '../../logic/type-validator';
+import { Model, Repository } from 'sequelize-typescript';
+import { Order, Transaction, UpdateOptions, WhereOptions } from 'sequelize';
+import { ISortOption } from 'src/port/interface/sort-option.interface';
+import { MakeNullishOptional } from 'sequelize/types/utils';
+import { IDbMapper } from 'src/port/interface/db-mapper.interface';
 
 @Injectable()
-export class BaseRepository<Entity, MongoEntity>
-  implements BaseRepositoryPort<Entity, MongoEntity>
+export class BaseRepository<Entity, SqlModel extends Model>
+  implements BaseRepositoryPort<Entity, SqlModel>
 {
   constructor(
-    private readonly genericModel: Model<MongoEntity>,
-    private readonly mapper: DbMapper<Entity, MongoEntity>,
+    private readonly genericModel: Repository<SqlModel>,
+    private readonly mapper: IDbMapper<Entity, SqlModel>,
   ) {}
 
-  async findAll(
-    session: ClientSession | null = null,
-  ): Promise<Array<MongoEntity>> {
-    const result = await this.genericModel.find().session(session);
-    return result.map((it) => it.toObject());
+  async findAll(trx: Transaction | null = null): Promise<Array<SqlModel>> {
+    const result = await this.genericModel.findAll({ transaction: trx });
+    return result;
   }
 
   async findOne(
-    identifier: FilterQuery<MongoEntity>,
-    session: ClientSession | null = null,
-  ): Promise<MongoEntity | undefined> {
-    const result = await this.genericModel.findOne(identifier).session(session);
-    return result?.toObject();
+    identifier: WhereOptions<SqlModel>,
+    trx: Transaction | null = null,
+  ): Promise<SqlModel | null | undefined> {
+    const result = await this.genericModel.findOne({
+      where: identifier,
+      transaction: trx,
+    });
+    return result;
   }
 
   async findOneOrThrow(
-    identifier: FilterQuery<MongoEntity>,
-    session?: ClientSession,
-  ): Promise<MongoEntity>;
+    identifier: WhereOptions<SqlModel>,
+    trx?: Transaction,
+  ): Promise<SqlModel>;
   async findOneOrThrow(
-    identifier: FilterQuery<MongoEntity>,
+    identifier: WhereOptions<SqlModel>,
     errorMessage?: string,
-    session?: ClientSession,
-  ): Promise<MongoEntity>;
+    trx?: Transaction,
+  ): Promise<SqlModel>;
   async findOneOrThrow(
-    identifier: FilterQuery<MongoEntity>,
-    paramTwo: string | ClientSession | null = null,
-    paramThree: ClientSession | null = null,
-  ): Promise<MongoEntity> {
-    const foundData = await this.genericModel
-      .findOne(identifier)
-      .session(typeof paramTwo !== 'string' ? paramTwo : paramThree);
+    identifier: WhereOptions<SqlModel>,
+    paramTwo: string | Transaction | null = null,
+    paramThree: Transaction | null = null,
+  ): Promise<SqlModel> {
+    const foundData = await this.genericModel.findOne({
+      where: identifier,
+      transaction: typeof paramTwo !== 'string' ? paramTwo : paramThree,
+    });
 
     if (!foundData) {
       throw new NotFoundException(
@@ -72,26 +67,28 @@ export class BaseRepository<Entity, MongoEntity>
               .toUpperCase()} NOT FOUND`,
       );
     }
-    return foundData?.toObject();
+    return foundData;
   }
 
   async findOneAndThrow(
-    identifier: FilterQuery<MongoEntity>,
-    session?: ClientSession,
+    identifier: WhereOptions<SqlModel>,
+    trx?: Transaction,
   ): Promise<void>;
   async findOneAndThrow(
-    identifier: FilterQuery<MongoEntity>,
+    identifier: WhereOptions<SqlModel>,
     errorMessage?: string,
-    session?: ClientSession,
+    trx?: Transaction,
   ): Promise<void>;
   async findOneAndThrow(
-    identifier: FilterQuery<MongoEntity>,
-    paramTwo: string | ClientSession | null = null,
-    paramThree: ClientSession | null = null,
+    identifier: WhereOptions<SqlModel>,
+    paramTwo: string | Transaction | null = null,
+    paramThree: Transaction | null = null,
   ): Promise<void> {
-    const foundData = await this.genericModel
-      .findOne(identifier)
-      .session(typeof paramTwo !== 'string' ? paramTwo : paramThree);
+    const foundData = await this.genericModel.findOne({
+      where: identifier,
+      transaction: typeof paramTwo !== 'string' ? paramTwo : paramThree,
+    });
+
     if (foundData) {
       throw new ConflictException(
         typeof paramTwo === 'string'
@@ -102,101 +99,96 @@ export class BaseRepository<Entity, MongoEntity>
   }
 
   async findOneLatest(
-    identifier: FilterQuery<MongoEntity>,
-    session: ClientSession | null = null,
-  ): Promise<MongoEntity | undefined> {
-    const result = await this.genericModel
-      .findOne(identifier)
-      .sort({ _id: -1 })
-      .session(session);
+    identifier: WhereOptions<SqlModel>,
+    trx: Transaction | null = null,
+  ): Promise<SqlModel | null> {
+    const result = await this.genericModel.findOne({
+      where: identifier,
+      transaction: trx,
+      order: ['id', 'DESC'],
+    });
 
-    return result?.toObject();
+    return result;
   }
 
   async findById(
     id: string,
-    session: ClientSession | null = null,
-  ): Promise<MongoEntity | undefined> {
-    this._validateMongoID(id);
-    const result = await this.genericModel.findById(id).session(session);
-    return result?.toObject();
+    trx: Transaction | null = null,
+  ): Promise<SqlModel | null> {
+    const result = await this.genericModel.findByPk(id, {
+      transaction: trx,
+    });
+    return result;
   }
 
   async findBy(
-    identifier: FilterQuery<MongoEntity>,
-    session: ClientSession | null = null,
-  ): Promise<Array<MongoEntity>> {
-    const result = await this.genericModel
-      .aggregate([{ $match: identifier }])
-      .session(session);
+    identifier: WhereOptions<SqlModel>,
+    trx: Transaction | null = null,
+  ): Promise<Array<SqlModel>> {
+    const result = await this.genericModel.findAll({
+      where: identifier,
+      transaction: trx,
+    });
 
-    return result.map((it) => it.toObject());
+    return result;
   }
 
   async findByPaginated(
-    identifier: FilterQuery<MongoEntity>,
+    identifier: WhereOptions<SqlModel>,
     paginationMeta: IPaginationMeta,
   ) {
     const { limit = 100, skip = 0 } = paginationMeta;
-    const result = await this.genericModel
-      .find(identifier)
-      .skip(skip)
-      .limit(limit);
+    const result = await this.genericModel.findAll({
+      where: identifier,
+      offset: skip,
+      limit,
+    });
 
-    return result.map((it) => it.toObject());
+    return result;
   }
 
   async findByPaginateSorted(
-    identifier: FilterQuery<MongoEntity>,
+    identifier: WhereOptions<SqlModel>,
     paginationMeta: IPaginationMeta,
-    sort: { [key: string]: SortOrder | { $meta: any } },
+    sort: ISortOption,
   ) {
     const { limit = 100, skip = 0 } = paginationMeta;
-    const result = await this.genericModel
-      .find(identifier)
-      .skip(skip)
-      .sort(sort)
-      .limit(limit);
+    const orderBy = Object.keys(sort).map((key) => [key, sort[key]]) as Order;
+    const result = await this.genericModel.findAll({
+      where: identifier,
+      offset: skip,
+      limit,
+      order: orderBy,
+    });
 
-    return result.map((it) => it.toObject());
+    return result;
   }
 
   async count(): Promise<number> {
-    return await this.genericModel.find().countDocuments();
+    return await this.genericModel.count();
   }
 
-  async countBy(identifier: FilterQuery<MongoEntity>): Promise<number> {
-    return await this.genericModel.find(identifier).countDocuments();
+  async countBy(identifier: WhereOptions<SqlModel>): Promise<number> {
+    return await this.genericModel.count({ where: identifier });
   }
 
-  async save(
-    entity: Entity,
-    session?: ClientSession,
-  ): Promise<IRepositoryResponse> {
-    const mongoEntity = this.mapper.toMongoEntity(entity);
-    const newModel = new this.genericModel(mongoEntity);
-    const result = await newModel.save({ session });
-    return {
-      _id: result._id as Types.ObjectId,
-    };
-  }
-  async saveReturnDocument(
-    entity: Entity,
-    session?: ClientSession,
-  ): Promise<Document<unknown, unknown, MongoEntity>> {
-    const mongoEntity = this.mapper.toMongoEntity(entity);
-    const newModel = new this.genericModel(mongoEntity);
-    const result = await newModel.save({ session });
-    return result?.toObject();
-  }
-  async saveMany(entities: Entity[], session?: ClientSession) {
-    const mongoEntities = entities.map((entity) =>
-      this.mapper.toMongoEntity(entity),
+  async save(entity: Entity, trx?: Transaction): Promise<IRepositoryResponse> {
+    const sqlModel = this.mapper.toSqlProps(entity) as MakeNullishOptional<
+      SqlModel & Model
+    >;
+
+    const created = await this.genericModel.create(
+      { ...sqlModel.dataValues },
+      { transaction: trx },
     );
-    const mongoEntitiesEncrypted = mongoEntities;
-    const saveResult = await this.genericModel.insertMany(
-      mongoEntitiesEncrypted,
-      { session },
+    return { id: created.id };
+  }
+
+  async saveMany(entities: Entity[], trx?: Transaction) {
+    const sqlModels = entities.map((entity) => this.mapper.toSqlProps(entity));
+    const saveResult = await this.genericModel.bulkCreate(
+      sqlModels as MakeNullishOptional<SqlModel & Model>[],
+      { transaction: trx },
     );
     return {
       n: saveResult.length,
@@ -204,21 +196,16 @@ export class BaseRepository<Entity, MongoEntity>
   }
 
   async update(
-    identifier: FilterQuery<MongoEntity>,
-    data: UpdateQuery<Partial<MongoEntity>>,
-    session?: ClientSession,
+    identifier: WhereOptions<SqlModel>,
+    data: UpdateOptions<SqlModel>,
+    trx?: Transaction,
   ): Promise<IRepositoryResponse> {
-    if (identifier._id && typeof identifier._id === 'string')
-      this._validateMongoID(identifier._id);
+    const [n] = await this.genericModel.update(data, {
+      where: identifier,
+      transaction: trx,
+    });
 
-    const { matchedCount, modifiedCount } = await this.genericModel.updateMany(
-      identifier,
-      data,
-      {
-        session,
-      },
-    );
-    if (!matchedCount) {
+    if (!n) {
       throw new NotFoundException(
         `E 404: ${this.constructor.name
           .replace('Repository', '')
@@ -226,54 +213,51 @@ export class BaseRepository<Entity, MongoEntity>
       );
     }
 
-    return { n: matchedCount, nModified: modifiedCount };
+    return { n };
   }
 
   async delete(
-    identifier: FilterQuery<Partial<MongoEntity>>,
-    session?: ClientSession,
+    identifier: WhereOptions<Partial<SqlModel>>,
+    trx?: Transaction,
   ): Promise<IRepositoryResponse> {
-    if (identifier._id) this._validateMongoID(identifier._id);
-
-    const { deletedCount } = await this.genericModel.deleteMany(identifier, {
-      session,
+    const result = await this.genericModel.destroy({
+      where: identifier,
+      transaction: trx,
     });
-    if (!deletedCount)
+    if (!result)
       throw new NotFoundException(
         `E 404: ${this.constructor.name
           .replace('Repository', '')
           .toUpperCase()} NOT FOUND, DELETE FAILED`,
       );
-    return { n: deletedCount };
+    return { n: result };
   }
 
   async deleteWithoutThrow(
-    identifier: FilterQuery<Partial<MongoEntity>>,
-    session?: ClientSession,
+    identifier: WhereOptions<Partial<SqlModel>>,
+    trx?: Transaction,
   ): Promise<IRepositoryResponse> {
-    if (identifier._id) this._validateMongoID(identifier._id);
-
-    const { deletedCount: n } = await this.genericModel.deleteMany(identifier, {
-      session,
+    const result = await this.genericModel.destroy({
+      where: identifier,
+      transaction: trx,
     });
 
-    return { n };
+    return { n: result };
   }
 
-  async deleteAll(session?: ClientSession): Promise<IRepositoryResponse> {
+  async deleteAll(trx?: Transaction): Promise<IRepositoryResponse> {
     if (process.env.MODE === 'PRODUCTION') {
       throw new ForbiddenException(
         'DeleteBulk Feature Disabled in PRODUCTION mode.',
       );
     }
-    const { deletedCount: n } = await this.genericModel.deleteMany(
-      {},
-      { session },
-    );
-    return { n };
+    const result = await this.genericModel.destroy({
+      transaction: trx,
+    });
+    return { n: result };
   }
 
-  prepareQuery(query: FilterQuery<MongoEntity>): FilterQuery<MongoEntity> {
+  prepareQuery(query: WhereOptions<SqlModel>): WhereOptions<SqlModel> {
     const ref = { ...query };
     Object.keys(ref).forEach((key) => {
       const value = ref[key];
@@ -292,26 +276,15 @@ export class BaseRepository<Entity, MongoEntity>
     return ref;
   }
 
-  private _validateMongoID(_id: string) {
-    if (!isValidObjectId(_id))
-      throw new BadRequestException('E 400: ID NOT VALID');
-  }
-
   async updateWithoutThrow(
-    identifier: FilterQuery<MongoEntity>,
-    data: UpdateQuery<Partial<MongoEntity>>,
-    session?: ClientSession,
+    identifier: WhereOptions<SqlModel>,
+    data: UpdateOptions<SqlModel>,
+    trx?: Transaction,
   ): Promise<IRepositoryResponse> {
-    if (identifier._id && typeof identifier._id === 'string')
-      this._validateMongoID(identifier._id);
-
-    const { matchedCount: n } = await this.genericModel.updateMany(
-      identifier,
-      data,
-      {
-        session,
-      },
-    );
+    const [n] = await this.genericModel.update(data, {
+      where: identifier,
+      transaction: trx,
+    });
 
     return { n };
   }

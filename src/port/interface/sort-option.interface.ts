@@ -1,3 +1,5 @@
-export interface ISortOption<T> {
-  [key: string]: T;
+export type SortValue = 'ASC' | 'DESC' | 'asc' | 'desc';
+
+export interface ISortOption {
+  [key: string]: SortValue;
 }

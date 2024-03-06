@@ -1,6 +1,4 @@
-import { IId } from '../interface/id.interface';
-
-export interface UserResponseDtoProps extends IId {
+export interface UserResponseDtoProps {
   user_id: string;
   user_name: string;
   level: string;

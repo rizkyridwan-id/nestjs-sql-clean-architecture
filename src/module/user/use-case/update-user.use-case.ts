@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 
 import { UpdateUserRequestDto } from '../controller/dtos/update-user.request.dto';
-import { UserMongoEntity } from '../repository/user.mongo-entity';
+import { UserModel } from '../repository/user.model';
 import { UserRepositoryPort } from '../../../port/repository/user.repository.port';
 import { InjectUserRepository } from '../repository/user.repository.provider';
 
@@ -9,11 +9,10 @@ import { BaseUseCase, IUseCase } from 'src/core/base/module/use-case.base';
 import { ResponseDto } from 'src/core/base/http/response.dto.base';
 
 import { PickUseCasePayload } from 'src/core/base/types/pick-use-case-payload.type';
-import { ObjectIdVO } from 'src/core/value-object/object-id.value-object';
 
 type TUpdateUserPayload = PickUseCasePayload<
   UpdateUserRequestDto,
-  'data' | '_id'
+  'data' | 'id'
 >;
 @Injectable()
 export class UpdateUser
@@ -26,14 +25,11 @@ export class UpdateUser
     super();
   }
 
-  async execute({ data, _id }: TUpdateUserPayload): Promise<ResponseDto> {
+  async execute({ data, id }: TUpdateUserPayload): Promise<ResponseDto> {
     try {
-      const payload: Partial<UserMongoEntity> = data;
+      const payload: Partial<UserModel> = data;
 
-      await this.userRepository.update(
-        { _id: new ObjectIdVO(_id).valueConverted },
-        payload,
-      );
+      await this.userRepository.update(payload, { where: { id } });
     } catch (err) {
       this.logger.error(err.message);
       if (err instanceof HttpException) throw err;
@@ -42,7 +38,7 @@ export class UpdateUser
     }
     return new ResponseDto({
       status: HttpStatus.OK,
-      message: `User ${_id} documents updated`,
+      message: `User ${id} documents updated`,
     });
   }
 }

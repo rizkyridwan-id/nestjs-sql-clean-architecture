@@ -20,14 +20,13 @@ export class GetUser extends BaseUseCase implements IUseCase<TGetUserPayload> {
     const users = await this.userRepository.findByPaginateSorted(
       { level: { $ne: 'SU' } },
       { skip: Number(data.skip), limit: Number(data.limit) },
-      data.sort_by || { _id: 1 },
+      { id: 'ASC' },
     );
 
     const usersMapped = users.map(
-      ({ _id, ...user }) =>
+      ({ id, ...user }) =>
         new UserResponseDto({
           ...user,
-          _id: TypeValidator.extractMongoId(_id),
         }),
     );
 
